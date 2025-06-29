@@ -199,28 +199,20 @@ jobs:
          export KSU_VERSION=$KSU_VERSION
          sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
 
-      - name: ⚙️ 修复 KernelSU Makefile
+      - name: 🔧 修复 KernelSU Makefile
         run: |
           cd kernel_workspace/kernel_platform/KernelSU/kernel
           cp Makefile Makefile.bak
           sed -i '/define get_ksu_version_full/,/endef/d' Makefile
           ENCRYPTED_STR="VEdAcWR5a2VybmVsCg=="
           DECODED_STR=$(echo "$ENCRYPTED_STR" | base64 -d | tr -d '\n')
-          echo -e 'define get_ksu_version_full\n\tv$1-'"$DECODED_STR"'\nendef' >> Makefile
-          if awk '
-            /define get_ksu_version_full/ { def=1 } 
-            def && /\tv\$1-TG\@qdykernel/ { content=1 } 
-            /endef/ && def { end=1; exit } 
-            END { exit !(def && content && end) }
-          ' Makefile; then
+          echo -e 'define get_ksu_version_full\n\tv$$1-'"$DECODED_STR"'\nendef' >> Makefile
+          if grep -q "define get_ksu_version_full" Makefile && grep -q "v\$$1-$DECODED_STR" Makefile; then
             echo "Makefile修复成功"
-            echo "=== 验证内容 ==="
+            echo "=== 修复后内容 ==="
             grep -A 2 "define get_ksu_version_full" Makefile
           else
             echo "::error::Makefile修复失败"
-            echo "=== 调试信息 ==="
-            echo "DECODED_STR: $DECODED_STR"
-            grep -n -A 5 "define get_ksu_version_full" Makefile || true
             exit 1
           fi
 
