@@ -206,15 +206,25 @@ jobs:
           sed -i '/define get_ksu_version_full/,/endef/d' Makefile
           ENCRYPTED_STR="VEdAcWR5a2VybmVsCg=="
           DECODED_STR=$(echo "$ENCRYPTED_STR" | base64 -d | tr -d '\n')
-          echo -e 'define get_ksu_version_full\n\tv$$1-'"$DECODED_STR"'\nendef' >> Makefile
-          if grep -q "define get_ksu_version_full" Makefile && grep -q "v\$$1-$DECODED_STR" Makefile; then
-            echo "Makefile修复成功"
-            echo "=== 修复后内容 ==="
-            grep -A 2 "define get_ksu_version_full" Makefile
-          else
-            echo "::error::Makefile修复失败"
+          printf 'define get_ksu_version_full\n\tv$$1-%s\nendef\n' "$DECODED_STR" >> Makefile
+          if ! grep -q "define get_ksu_version_full" Makefile; then
+            echo "::error::Makefile修复失败：未找到函数定义"
+            echo "=== Makefile 内容 ==="
+            cat Makefile || true
             exit 1
           fi
+          if ! grep -A 1 "define get_ksu_version_full" Makefile | grep -q "v\$\$1-$DECODED_STR"; then
+            echo "::error::Makefile修复失败：函数内容不匹配"
+            echo "=== 调试信息 ==="
+            echo "预期内容: v\$\$1-$DECODED_STR"
+            echo "=== 实际内容 ==="
+            grep -A 2 "define get_ksu_version_full" Makefile || true
+            exit 1
+          fi
+          
+          echo "Makefile修复成功"
+          echo "=== 修复后内容 ==="
+          grep -A 2 "define get_ksu_version_full" Makefile
 
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         run: |
