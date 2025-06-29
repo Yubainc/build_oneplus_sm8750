@@ -191,13 +191,22 @@ jobs:
          
       - name: ⚙️ Set up SukiSU Ultra (配置 SukiSU Ultra)
         run: |
-         cd kernel_workspace/kernel_platform
-         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
-         cd ./KernelSU
-         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10700)
-         echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-         export KSU_VERSION=$KSU_VERSION
-         sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+          cd kernel_workspace/kernel_platform
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
+          cd ./KernelSU
+          
+          # 修改 Makefile 使用固定版本格式
+          sed -i '/define get_ksu_version_full/{N;N;c\
+          define get_ksu_version_full\nv$$1-TG@qdykernel\nendef
+          }' kernel/Makefile
+          
+          # 修改备用版本格式
+          sed -i 's/KSU_VERSION_FULL := v$(KSU_VERSION_API)-$(REPO_NAME)-unknown@unknown/KSU_VERSION_FULL := v$(KSU_VERSION_API)-TG@qdykernel/' kernel/Makefile
+          
+          # 计算版本号
+          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10700)
+          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+          export KSU_VERSION=$KSU_VERSION
 
       - name: 🔧 修复 KernelSU Makefile
         run: |
