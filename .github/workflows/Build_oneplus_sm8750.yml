@@ -189,17 +189,16 @@ jobs:
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
          
-      - name: ⚙️ Set up SukiSU Ultra (配置 SukiSU Ultra)
+      - name: ⚙️ Set up SukiSU Ultra
         run: |
-         cd kernel_workspace/kernel_platform
-         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
-         cd ./KernelSU
-         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10700)
-         echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-         export KSU_VERSION=$KSU_VERSION
-         ENCRYPTED_STR="VEdAcWR5a2VybmVsCg=="
-         sed -i 's|^[[:space:]]*define get_ksu_version_full.*|\tdefine get_ksu_version_full\n\tv$1-'"$(echo $ENCRYPTED_STR | base64 -d | tr -d '\n')"'\n\tendef|' kernel/Makefile
-         grep -q $'\tv$1-$(echo $ENCRYPTED_STR | base64 -d | tr -d '\n')' kernel/Makefile || { echo "::error::修改失败"; exit 1; }
+          cd kernel_workspace/kernel_platform
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
+          cd ./KernelSU
+          KSU_VERSION=$(($(git rev-list --count main) + 10700))
+          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+          ENCRYPTED_STR="VEdAcWR5a2VybmVsCg=="
+          DECODED_STR=$(echo "$ENCRYPTED_STR" | base64 -d | tr -d '\n')
+          sed -i 's|^[[:space:]]*define get_ksu_version_full.*|\tdefine get_ksu_version_full\n\tv$1-'"$DECODED_STR"'\n\tendef|' kernel/Makefile || { echo "::error::失败"; exit 1; }
       
         
       - name: 🔧 Set up SUSFS (配置 SUSFS)
