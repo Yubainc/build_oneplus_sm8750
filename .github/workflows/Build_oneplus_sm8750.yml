@@ -199,33 +199,23 @@ jobs:
          export KSU_VERSION=$KSU_VERSION
          sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
 
-      - name: ⚙️ Fix KernelSU Version Format
+      - name: ⚙️ 修复 KernelSU Makefile 语法
         run: |
           cd kernel_workspace/kernel_platform/KernelSU/kernel
           cp Makefile Makefile.bak
           ENCRYPTED_STR="VEdAcWR5a2VybmVsCg=="
           DECODED_STR=$(echo "$ENCRYPTED_STR" | base64 -d | tr -d '\n')
-          sed -i '/define get_ksu_version_full/,/endef/{
-            /define get_ksu_version_full/{
-              a\
-          \tdefine get_ksu_version_full\
-          \tv$1-'"$DECODED_STR"'\
-          \tendef
-                  d
-                }
-                /endef/d
-              }' Makefile
-          
+          sed -i '/define get_ksu_version_full/,/endef/d' Makefile
+          echo -e 'define get_ksu_version_full\n\tv$1-'"$DECODED_STR"'\nendef' >> Makefile
           if grep -q $'\tdefine get_ksu_version_full' Makefile && \
             grep -q $'\tv$1-TG@qdykernel' Makefile && \
-            grep -q $'\tendef' Makefile; then
-            echo "Makefile修改成功"
+            grep -q $'endef' Makefile; then
+            echo "Makefile 语法修复成功"
             echo "验证内容："
             grep -A 2 "define get_ksu_version_full" Makefile
           else
-            echo "::error::Makefile修改失败"
-            echo "当前内容："
-            cat Makefile | grep -A 5 "define get_ksu_version_full" || true
+            echo "::error::Makefile 修复失败，请检查以下内容："
+            cat Makefile | grep -n -A 5 "define" || true
             exit 1
           fi
 
