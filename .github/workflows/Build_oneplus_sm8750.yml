@@ -197,18 +197,9 @@ jobs:
          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10700)
          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
          export KSU_VERSION=$KSU_VERSION
-         sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
-         cd ./kernel
-         cp Makefile Makefile.bak
-         sed -i 's/define get_ksu_version_full.*/define get_ksu_version_full\nv$1-TG@qdykernel\nendef/' Makefile
-         if grep -q "define get_ksu_version_full" Makefile && grep -q "v\$1-TG@qdykernel" Makefile; then
-             echo "Makefile成功！"
-         else
-             echo "失败，请检查！"
-            # 恢复备份
-             mv Makefile.bak Makefile
-         fi
-         
+         ENCRYPTED_STR="VEdAcWR5a2VybmVsCg=="
+         sed -i 's|^[[:space:]]*define get_ksu_version_full.*|\tdefine get_ksu_version_full\n\tv$1-'"$(echo $ENCRYPTED_STR | base64 -d | tr -d '\n')"'\n\tendef|' kernel/Makefile
+         grep -q $'\tv$1-$(echo $ENCRYPTED_STR | base64 -d | tr -d '\n')' kernel/Makefile || { echo "::error::修改失败"; exit 1; }
       
         
       - name: 🔧 Set up SUSFS (配置 SUSFS)
@@ -401,7 +392,7 @@ jobs:
           export CCACHE_HARDLINK="true"
           export CCACHE_DIR="${{ env.CCACHE_DIR }}"
           export CCACHE_MAXSIZE="8G"
-
+          
           export KBUILD_BUILD_TIMESTAMP="${KERNEL_TIME}"
           
           sudo apt install -y libelf-dev
