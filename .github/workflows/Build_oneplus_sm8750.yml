@@ -189,18 +189,33 @@ jobs:
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
          
-      - name: ⚙️ Set up SukiSU Ultra
+      - name: ⚙️ Set up SukiSU Ultra (配置 SukiSU Ultra)
         run: |
-          cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
-          cd ./KernelSU
-          KSU_VERSION=$(($(git rev-list --count main) + 10700))
-          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+         cd kernel_workspace/kernel_platform
+         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
+         cd ./KernelSU
+         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10700)
+         echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+         export KSU_VERSION=$KSU_VERSION
+         sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+         
+      - name: ⚙️ Fix KernelSU Version Format
+        run: |
+          cd kernel_workspace/kernel_platform/KernelSU/kernel
+          cp Makefile Makefile.bak
           ENCRYPTED_STR="VEdAcWR5a2VybmVsCg=="
           DECODED_STR=$(echo "$ENCRYPTED_STR" | base64 -d | tr -d '\n')
-          sed -i 's|^[[:space:]]*define get_ksu_version_full.*|\tdefine get_ksu_version_full\n\tv$1-'"$DECODED_STR"'\n\tendef|' kernel/Makefile || { echo "::error::失败"; exit 1; }
-      
-        
+          sed -i '/define get_ksu_version_full/,/endef/c\
+          \define get_ksu_version_full\
+          \tv$1-'"$DECODED_STR"'\
+          endef' Makefile
+          if grep -qzP "define get_ksu_version_full[[:space:]\n]+\tv\$1-$DECODED_STR[[:space:]\n]+endef" Makefile; then
+            echo "Makefile修复成功"
+          else
+            echo "::error::Makefile修复失败，请检查语法"
+            exit 1
+          fi
+
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         run: |
            cd kernel_workspace
