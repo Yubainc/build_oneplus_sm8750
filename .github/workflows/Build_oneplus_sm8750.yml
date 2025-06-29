@@ -12,23 +12,21 @@ on:
           - 'oneplus_13t'
           - 'oneplus_pad_2_pro'
           - 'oneplus_ace5_ultra'
-          - 'realme_GT7pro'
-          - 'realme_GT7pro_Speed'
         default: 'oneplus_ace5_pro'
 
       keep_original_settings:
-        description: "保持原内核名称及构建时间"
+        description: "✅ 保持原内核名称及构建时间"
         required: false
         default: true
         type: boolean
 
       custom_kernel_suffix:
-        description: "✏️ 自定义内核名称(示例:-TG@qdykernel) - 仅在取消勾选'保持原设置'时有效"
+        description: "✏️ 自定义内核名称(可中文和emoji) - 仅在取消勾选'保持原设置'时有效"
         required: false
         default: ''
       
       custom_kernel_time:
-        description: "⏰ 自定义构建时间(示例:Tue Dec 17 23:36:49 UTC 2024) - 仅在取消勾选'保持原设置'时有效"
+        description: "⏰ 自定义构建时间(示例：Tue Dec 17 23:36:49 UTC 2024) - 仅在取消勾选'保持原设置'时有效"
         required: false
         default: ''
       
@@ -55,7 +53,6 @@ on:
 
 jobs:
   build:
-    name: Build_${{ github.event.inputs.REPO_MANIFEST }}
     runs-on: ubuntu-latest
     steps:
       - name: 📊 Check disk space (检查磁盘空间)
@@ -89,7 +86,7 @@ jobs:
             echo "KERNEL_TIME=$CUSTOM_TIME" >> $GITHUB_ENV
           else
             case "$DEVICES_NAME" in
-              oneplus_13 | oneplus_ace5_pro | realme_GT7pro | realme_GT7pro_Speed)
+              oneplus_13 | oneplus_ace5_pro)
                 echo 'KERNEL_TIME=Tue Dec 17 23:36:49 UTC 2024' >> $GITHUB_ENV
                 ;;
               oneplus_13t)
@@ -201,6 +198,16 @@ jobs:
          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
          export KSU_VERSION=$KSU_VERSION
          sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+         cp Makefile Makefile.bak
+         sed -i 's/define get_ksu_version_full.*/define get_ksu_version_full\nv$1-TG@qdykernel\nendef/' Makefile
+         if grep -q "define get_ksu_version_full" Makefile && grep -q "v\$1-TG@qdykernel" Makefile; then
+             echo "Makefile成功！"
+         else
+             echo "失败，请检查！"
+            # 恢复备份
+             mv Makefile.bak Makefile
+         fi
+         
       
         
       - name: 🔧 Set up SUSFS (配置 SUSFS)
@@ -341,7 +348,7 @@ jobs:
           cd kernel_workspace/kernel_platform
 
           case "$DEVICES_NAME" in
-            oneplus_13 | oneplus_ace5_pro | realme_GT7pro | realme_GT7pro_Speed)
+            oneplus_13 | oneplus_ace5_pro)
               DEFAULT_SUFFIX="-android15-8-g013ec21bba94-abogki383916444-4k"
               ;;
             oneplus_13t)
@@ -393,7 +400,7 @@ jobs:
           export CCACHE_HARDLINK="true"
           export CCACHE_DIR="${{ env.CCACHE_DIR }}"
           export CCACHE_MAXSIZE="8G"
-          
+
           export KBUILD_BUILD_TIMESTAMP="${KERNEL_TIME}"
           
           sudo apt install -y libelf-dev
