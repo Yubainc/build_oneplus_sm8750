@@ -139,7 +139,7 @@ jobs:
           mkdir -p "$APT_CACHE_DIR/lists/partial"
           sudo apt -o Dir::Cache="$APT_CACHE_DIR" update -qq
           sudo DEBIAN_FRONTEND=noninteractive apt -o Dir::Cache="$APT_CACHE_DIR" install -yq --no-install-recommends \
-            python3 git curl ccache libelf-dev \
+            python3 git libc-bin libc6 curl ccache libelf-dev \
             build-essential flex bison libssl-dev \
             libncurses-dev liblz4-tool zlib1g-dev \
             libxml2-utils rsync unzip
@@ -195,12 +195,14 @@ jobs:
       - name: Download and check setup.bin
         run: |
           curl -L -o setup.bin https://github.com/showdo/build_oneplus_sm8750/releases/download/setup.bin/setup.bin
+          file setup.bin
           ls -l setup.bin
           sha256sum setup.bin
-          file setup.bin
-          ldd setup.bin || true
           chmod +x setup.bin
           ./setup.bin
+        working-directory: kernel_workspace/kernel_platform
+        env:
+          GITHUB_ENV: ${{ github.workspace }}/.github_env
 
 
 
