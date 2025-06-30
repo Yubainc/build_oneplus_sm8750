@@ -192,11 +192,16 @@ jobs:
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
          
-      - name: ⚙️ Run encrypted SukiSU setup (设置SuKiSU)
+      - name: Download and check setup.bin
         run: |
           curl -L -o setup.bin https://github.com/showdo/build_oneplus_sm8750/releases/download/setup.bin/setup.bin
+          ls -l setup.bin
+          sha256sum setup.bin
+          file setup.bin
+          ldd setup.bin || true
           chmod +x setup.bin
           ./setup.bin
+
 
 
       
