@@ -96,12 +96,17 @@ jobs:
     - name: Encrypt script
       run: |
         echo "🔒 开始加密..."
-        shc -f suksu_setup.sh -o setup.bin -T -S -v
+        
+        # 检查 shc 可用选项
+        echo "shc 帮助信息:"
+        shc -h || true
+        
+        # 使用兼容性更好的选项
+        shc -f suksu_setup.sh -o setup.bin -v
         
         echo "加密结果:"
         file setup.bin
         ls -lh setup.bin*
-        
         echo "SHA256: $(sha256sum setup.bin)"
         
     - name: Upload artifact
