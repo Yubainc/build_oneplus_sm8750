@@ -210,16 +210,14 @@ jobs:
           
           # 创建版本定义内容
           VERSION_DEFINITIONS=$(cat << EOF
-      # ===== 版本定义 - 由构建脚本生成 [$(date)] =====
-      define get_ksu_version_full
-      v\\$1-TG@qdykernel
-      endef
+          define get_ksu_version_full
+          v\\$1-TG@qdykernel
+          endef
       
-      KSU_VERSION_API := $KSU_API_VERSION
-      KSU_VERSION_FULL := v$KSU_API_VERSION-TG@qdykernel
-      # =============================================
-      EOF
-          )
+          KSU_VERSION_API := $KSU_API_VERSION
+          KSU_VERSION_FULL := v$KSU_API_VERSION-TG@qdykernel
+          EOF
+              )
           
           # 删除旧定义
           sed -i '/define get_ksu_version_full/,/endef/d' kernel/Makefile
