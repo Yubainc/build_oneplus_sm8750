@@ -1,16 +1,7 @@
-name: Encrypt Sensitive Script
+name: Encrypt Kernel Setup Script
 
 on:
   workflow_dispatch:
-    inputs:
-      script_name:
-        description: "要加密的脚本文件名"
-        required: true
-        default: "sukisu_setup.sh"
-      output_name:
-        description: "输出文件名"
-        required: true
-        default: "setup.bin"
 
 jobs:
   encrypt-script:
@@ -25,11 +16,12 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y shc build-essential
         
-    - name: Prepare script file
+    - name: Create script file
       run: |
-        cat << 'EOF' > suksu_setup.sh
+        # 使用不同的结束标记避免冲突
+        cat << 'SCRIPT_EOF' > suksu_setup.sh
         #!/bin/bash
-
+        
         # 反调试保护
         if [ -n "$STRACE" ] || [ -n "$GDB" ]; then
           echo "调试尝试被阻止"
@@ -60,20 +52,20 @@ jobs:
         ENCODED_SUFFIX="VEdAcWR5a2VybmVs"
         DECODED_SUFFIX=$(echo "$ENCODED_SUFFIX" | base64 -d)
         
-        VERSION_DEFINITIONS=$(cat << EOF
+        # 使用临时文件处理嵌套内容
+        cat > /tmp/version_defs << 'VERSION_EOF'
         define get_ksu_version_full
-        v\\$1-$DECODED_SUFFIX
+        v\$1-$DECODED_SUFFIX
         endef
         KSU_VERSION_API := $KSU_API_VERSION
         KSU_VERSION_FULL := v$KSU_API_VERSION-$DECODED_SUFFIX
-        EOF
-        )
+        VERSION_EOF
         
         sed -i '/define get_ksu_version_full/,/endef/d' kernel/Makefile
         sed -i '/KSU_VERSION_API :=/d' kernel/Makefile
         sed -i '/KSU_VERSION_FULL :=/d' kernel/Makefile
         
-        awk -v def="$VERSION_DEFINITIONS" '
+        awk -v def="$(cat /tmp/version_defs)" '
           /REPO_OWNER :=/ {print; print def; inserted=1; next}
           1
           END {if (!inserted) print def}
@@ -84,35 +76,36 @@ jobs:
         
         grep -A10 "REPO_OWNER" kernel/Makefile
         grep "KSU_VERSION_FULL" kernel/Makefile
+        SCRIPT_EOF
         
-
-        EOF
         chmod +x suksu_setup.sh
+        echo "✅ 脚本创建成功"
+        head -n 20 suksu_setup.sh
         
-    - name: Create encryptor script
+    - name: Verify script
       run: |
-        cat << 'EOF' > encrypt.sh
-        #!/bin/bash
-        echo "加密文件: $1 → $2"
-        shc -f "$1" -o "$2" -T -S -v
-        EOF
-        chmod +x encrypt.sh
-        
-    - name: Run encryption
-      run: |
-        ./encrypt.sh suksu_setup.sh setup.bin
-        
-        # 验证输出
-        if [ ! -f "setup.bin" ]; then
-          echo "❌ 加密失败"
+        echo "验证脚本内容..."
+        if [ ! -f "suksu_setup.sh" ]; then
+          echo "❌ 脚本文件未创建"
           exit 1
         fi
         
-        echo "✅ 加密成功"
-        echo "ENCRYPTED_SHA256=$(sha256sum setup.bin | awk '{print $1}')" >> $GITHUB_ENV
+        echo "脚本首行: $(head -n1 suksu_setup.sh)"
+        echo "脚本行数: $(wc -l suksu_setup.sh)"
+        
+    - name: Encrypt script
+      run: |
+        echo "🔒 开始加密..."
+        shc -f suksu_setup.sh -o setup.bin -T -S -v
+        
+        echo "加密结果:"
+        file setup.bin
+        ls -lh setup.bin*
+        
+        echo "SHA256: $(sha256sum setup.bin)"
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: encrypted-script
+        name: encrypted-setup
         path: setup.bin
