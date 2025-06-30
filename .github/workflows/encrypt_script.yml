@@ -21,19 +21,6 @@ jobs:
         # 使用不同的结束标记避免冲突
         cat << 'SCRIPT_EOF' > suksu_setup.sh
         #!/bin/bash
-        
-        # 反调试保护
-        if [ -n "$STRACE" ] || [ -n "$GDB" ]; then
-          echo "调试尝试被阻止"
-          exit 1
-        fi
-        
-        # 检查常见调试工具
-        if ps aux | grep -E 'strace|gdb|ltrace'; then
-          echo "检测到调试工具"
-          exit 1
-        fi
-        
         cd kernel_workspace/kernel_platform
         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
         cd ./KernelSU
