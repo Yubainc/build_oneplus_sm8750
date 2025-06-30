@@ -11,10 +11,6 @@ on:
         description: "输出文件名"
         required: true
         default: "setup.bin"
-      shc_options:
-        description: "shc 加密选项"
-        required: false
-        default: "-T -S -v"
 
 jobs:
   encrypt-script:
@@ -24,65 +20,99 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       
-    - name: Install shc and dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y shc build-essential
         
-    - name: Verify shc installation
+    - name: Prepare script file
       run: |
-        if ! command -v shc &> /dev/null; then
-          echo "❌ shc 未安装"
+        cat << 'EOF' > suksu_setup.sh
+        #!/bin/bash
+
+        # 反调试保护
+        if [ -n "$STRACE" ] || [ -n "$GDB" ]; then
+          echo "调试尝试被阻止"
           exit 1
         fi
-        echo "✅ shc 已安装 - $(shc 2>&1 | head -n 1)"
         
-    - name: Create encryption script
+        # 检查常见调试工具
+        if ps aux | grep -E 'strace|gdb|ltrace'; then
+          echo "检测到调试工具"
+          exit 1
+        fi
+        
+        cd kernel_workspace/kernel_platform
+        curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
+        cd ./KernelSU
+        
+        for i in {1..3}; do
+          KSU_API_VERSION=$(curl -s "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/Makefile" | 
+            grep -m1 "KSU_VERSION_API :=" | 
+            awk -F'= ' '{print $2}' | 
+            tr -d '[:space:]')
+          [ -n "$KSU_API_VERSION" ] && break || sleep 2
+        done
+        
+        [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION="3.1.6"
+        echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
+        
+        ENCODED_SUFFIX="VEdAcWR5a2VybmVs"
+        DECODED_SUFFIX=$(echo "$ENCODED_SUFFIX" | base64 -d)
+        
+        VERSION_DEFINITIONS=$(cat << EOF
+        define get_ksu_version_full
+        v\\$1-$DECODED_SUFFIX
+        endef
+        KSU_VERSION_API := $KSU_API_VERSION
+        KSU_VERSION_FULL := v$KSU_API_VERSION-$DECODED_SUFFIX
+        EOF
+        )
+        
+        sed -i '/define get_ksu_version_full/,/endef/d' kernel/Makefile
+        sed -i '/KSU_VERSION_API :=/d' kernel/Makefile
+        sed -i '/KSU_VERSION_FULL :=/d' kernel/Makefile
+        
+        awk -v def="$VERSION_DEFINITIONS" '
+          /REPO_OWNER :=/ {print; print def; inserted=1; next}
+          1
+          END {if (!inserted) print def}
+        ' kernel/Makefile > kernel/Makefile.tmp && mv kernel/Makefile.tmp kernel/Makefile
+        
+        KSU_VERSION=$(expr $(git rev-list --count main) + 10700 2>/dev/null || echo 13000)
+        echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+        
+        grep -A10 "REPO_OWNER" kernel/Makefile
+        grep "KSU_VERSION_FULL" kernel/Makefile
+        
+
+        EOF
+        chmod +x suksu_setup.sh
+        
+    - name: Create encryptor script
       run: |
         cat << 'EOF' > encrypt.sh
         #!/bin/bash
-        
-        # 验证输入文件存在
-        if [ ! -f "$INPUT_SCRIPT" ]; then
-          echo "❌ 错误: 文件 $INPUT_SCRIPT 不存在"
-          exit 1
-        fi
-        
-        # 添加反调试保护
-        sed -i '2i # 反调试保护\nif [ -n "$STRACE" ] || [ -n "$GDB" ]; then\n  echo "调试尝试被阻止"\n  exit 1\nfi\n' "$INPUT_SCRIPT"
-        
-        # 执行加密
-        echo "🔒 开始加密脚本: $INPUT_SCRIPT"
-        shc $SHC_OPTIONS -f "$INPUT_SCRIPT" -o "$OUTPUT_FILE"
-        
-        # 验证输出
-        if [ ! -f "$OUTPUT_FILE" ]; then
-          echo "❌ 错误: 加密失败，输出文件未创建"
-          exit 1
-        fi
-        
-        echo "✅ 加密成功! 输出文件: $OUTPUT_FILE"
-        echo "文件信息:"
-        file "$OUTPUT_FILE"
-        echo "SHA256: $(sha256sum "$OUTPUT_FILE" | awk '{print $1}')"
+        echo "加密文件: $1 → $2"
+        shc -f "$1" -o "$2" -T -S -v
         EOF
-        
         chmod +x encrypt.sh
         
-    - name: Encrypt the script
+    - name: Run encryption
       run: |
-        INPUT_SCRIPT="${{ github.event.inputs.script_name }}"
-        OUTPUT_FILE="${{ github.event.inputs.output_name }}"
-        SHC_OPTIONS="${{ github.event.inputs.shc_options }}"
+        ./encrypt.sh suksu_setup.sh setup.bin
         
-        ./encrypt.sh
+        # 验证输出
+        if [ ! -f "setup.bin" ]; then
+          echo "❌ 加密失败"
+          exit 1
+        fi
         
-        SHA256=$(sha256sum "$OUTPUT_FILE" | awk '{print $1}')
-        echo "ENCRYPTED_SHA256=$SHA256" >> $GITHUB_ENV
-        echo "OUTPUT_FILENAME=$OUTPUT_FILE" >> $GITHUB_ENV
+        echo "✅ 加密成功"
+        echo "ENCRYPTED_SHA256=$(sha256sum setup.bin | awk '{print $1}')" >> $GITHUB_ENV
         
-    - name: Upload encrypted binary
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: encrypted-script
-        path: ${{ github.event.inputs.output_name }}
+        path: setup.bin
