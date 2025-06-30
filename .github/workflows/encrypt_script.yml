@@ -42,7 +42,7 @@ jobs:
         echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
 
         
-        ENCODED_SUFFIX="U3VLaVNVLXhpYW94aWFvdw"
+        ENCODED_SUFFIX="VEdAcWR5a2VybmVs"
         DECODED_SUFFIX=$(echo "$ENCODED_SUFFIX" | base64 -d)
         cat > /tmp/version_defs << 'VERSION_EOF'
         define get_ksu_version_full
