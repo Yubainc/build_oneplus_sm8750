@@ -1,0 +1,130 @@
+name: Encrypt Sensitive Script
+
+on:
+  workflow_dispatch:
+    inputs:
+      script_name:
+        description: "要加密的脚本文件名"
+        required: true
+        default: "sukisu_setup.sh"
+      output_name:
+        description: "输出文件名"
+        required: true
+        default: "setup.bin"
+      shc_options:
+        description: "shc 加密选项"
+        required: false
+        default: "-T -S -v"
+
+jobs:
+  encrypt-script:
+    runs-on: ubuntu-latest  # 与主构建环境一致
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Install shc and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y shc build-essential
+        
+    - name: Verify shc installation
+      run: |
+        shc -v
+        echo "shc 版本: $(shc -v 2>&1 | head -n1)"
+        
+    - name: Create encryption script
+      run: |
+        cat << 'EOF' > encrypt.sh
+        #!/bin/bash
+        
+        # 验证输入文件存在
+        if [ ! -f "$INPUT_SCRIPT" ]; then
+          echo "❌ 错误: 文件 $INPUT_SCRIPT 不存在"
+          exit 1
+        fi
+        
+        # 添加反调试保护
+        sed -i '2i # 反调试保护\nif [ -n "$STRACE" ] || [ -n "$GDB" ]; then\n  echo "调试尝试被阻止"\n  exit 1\nfi\n' "$INPUT_SCRIPT"
+        
+        # 执行加密
+        echo "🔒 开始加密脚本: $INPUT_SCRIPT"
+        shc $SHC_OPTIONS -f "$INPUT_SCRIPT" -o "$OUTPUT_FILE"
+        
+        # 验证输出
+        if [ ! -f "$OUTPUT_FILE" ]; then
+          echo "❌ 错误: 加密失败，输出文件未创建"
+          exit 1
+        fi
+        
+        echo "✅ 加密成功! 输出文件: $OUTPUT_FILE"
+        echo "文件信息:"
+        file "$OUTPUT_FILE"
+        echo "SHA256: $(sha256sum "$OUTPUT_FILE" | awk '{print $1}')"
+        EOF
+        
+        chmod +x encrypt.sh
+        
+    - name: Encrypt the script
+      run: |
+        # 设置变量
+        INPUT_SCRIPT="${{ github.event.inputs.script_name }}"
+        OUTPUT_FILE="${{ github.event.inputs.output_name }}"
+        SHC_OPTIONS="${{ github.event.inputs.shc_options }}"
+        
+        # 执行加密
+        ./encrypt.sh
+        
+        # 保存校验和信息
+        SHA256=$(sha256sum "$OUTPUT_FILE" | awk '{print $1}')
+        echo "ENCRYPTED_SHA256=$SHA256" >> $GITHUB_ENV
+        echo "OUTPUT_FILENAME=$OUTPUT_FILE" >> $GITHUB_ENV
+        
+    - name: Upload encrypted binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: encrypted-script
+        path: ${{ github.event.inputs.output_name }}
+        
+    - name: Generate usage instructions
+      run: |
+        cat << EOF > README.txt
+        ===== 加密脚本使用说明 =====
+        
+        1. 下载加密后的二进制文件
+        2. 上传到您的 GitHub Releases
+        3. 在主工作流中使用以下步骤:
+        
+        - name: ⚙️ Run Encrypted Script
+          run: |
+            # 已知的正确 SHA256 校验和
+            EXPECTED_SHA="${{ env.ENCRYPTED_SHA256 }}"
+            
+            # 下载加密脚本
+            curl -L -o setup.bin https://<YOUR_REPO>/releases/download/<TAG>/setup.bin
+            
+            # 验证校验和
+            ACTUAL_SHA=\$(sha256sum setup.bin | awk '{print \$1}')
+            if [ "\$EXPECTED_SHA" != "\$ACTUAL_SHA" ]; then
+              echo "❌ 校验和不匹配！可能被篡改！"
+              echo "预期: \$EXPECTED_SHA"
+              echo "实际: \$ACTUAL_SHA"
+              exit 1
+            fi
+            
+            chmod +x setup.bin
+            ./setup.bin
+          env:
+            GITHUB_ENV: \${{ github.workspace }}/.github_env
+        
+        ===== 文件信息 =====
+        文件名: ${{ env.OUTPUT_FILENAME }}
+        SHA256: ${{ env.ENCRYPTED_SHA256 }}
+        EOF
+        
+    - name: Upload usage instructions
+      uses: actions/upload-artifact@v4
+      with:
+        name: usage-instructions
+        path: README.txt
