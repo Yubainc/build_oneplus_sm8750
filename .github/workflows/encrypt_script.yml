@@ -18,7 +18,7 @@ on:
 
 jobs:
   encrypt-script:
-    runs-on: ubuntu-latest  # 与主构建环境一致
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout repository
@@ -31,8 +31,11 @@ jobs:
         
     - name: Verify shc installation
       run: |
-        shc -v
-        echo "shc 版本: $(shc -v 2>&1 | head -n1)"
+        if ! command -v shc &> /dev/null; then
+          echo "❌ shc 未安装"
+          exit 1
+        fi
+        echo "✅ shc 已安装 - $(shc 2>&1 | head -n 1)"
         
     - name: Create encryption script
       run: |
@@ -68,15 +71,12 @@ jobs:
         
     - name: Encrypt the script
       run: |
-        # 设置变量
         INPUT_SCRIPT="${{ github.event.inputs.script_name }}"
         OUTPUT_FILE="${{ github.event.inputs.output_name }}"
         SHC_OPTIONS="${{ github.event.inputs.shc_options }}"
         
-        # 执行加密
         ./encrypt.sh
         
-        # 保存校验和信息
         SHA256=$(sha256sum "$OUTPUT_FILE" | awk '{print $1}')
         echo "ENCRYPTED_SHA256=$SHA256" >> $GITHUB_ENV
         echo "OUTPUT_FILENAME=$OUTPUT_FILE" >> $GITHUB_ENV
@@ -86,45 +86,3 @@ jobs:
       with:
         name: encrypted-script
         path: ${{ github.event.inputs.output_name }}
-        
-    - name: Generate usage instructions
-      run: |
-        cat << EOF > README.txt
-        ===== 加密脚本使用说明 =====
-        
-        1. 下载加密后的二进制文件
-        2. 上传到您的 GitHub Releases
-        3. 在主工作流中使用以下步骤:
-        
-        - name: ⚙️ Run Encrypted Script
-          run: |
-            # 已知的正确 SHA256 校验和
-            EXPECTED_SHA="${{ env.ENCRYPTED_SHA256 }}"
-            
-            # 下载加密脚本
-            curl -L -o setup.bin https://<YOUR_REPO>/releases/download/<TAG>/setup.bin
-            
-            # 验证校验和
-            ACTUAL_SHA=\$(sha256sum setup.bin | awk '{print \$1}')
-            if [ "\$EXPECTED_SHA" != "\$ACTUAL_SHA" ]; then
-              echo "❌ 校验和不匹配！可能被篡改！"
-              echo "预期: \$EXPECTED_SHA"
-              echo "实际: \$ACTUAL_SHA"
-              exit 1
-            fi
-            
-            chmod +x setup.bin
-            ./setup.bin
-          env:
-            GITHUB_ENV: \${{ github.workspace }}/.github_env
-        
-        ===== 文件信息 =====
-        文件名: ${{ env.OUTPUT_FILENAME }}
-        SHA256: ${{ env.ENCRYPTED_SHA256 }}
-        EOF
-        
-    - name: Upload usage instructions
-      uses: actions/upload-artifact@v4
-      with:
-        name: usage-instructions
-        path: README.txt
