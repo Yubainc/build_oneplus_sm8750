@@ -26,20 +26,24 @@ jobs:
         cd ./KernelSU
         
         for i in {1..3}; do
-          KSU_API_VERSION=$(curl -s "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/Makefile" | 
-            grep -m1 "KSU_VERSION_API :=" | 
-            awk -F'= ' '{print $2}' | 
+          KSU_API_VERSION=$(curl -fsSL "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/Makefile" |
+            grep -m1 "KSU_VERSION_API *:=" |
+            awk -F':= *' '{print $2}' |
             tr -d '[:space:]')
           [ -n "$KSU_API_VERSION" ] && break || sleep 2
         done
-        
-        [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION="3.1.6"
+
+        if [ -z "$KSU_API_VERSION" ]; then
+          echo "⚠️ 获取 KSU_VERSION_API 失败，使用默认值 3.1.7"
+          KSU_API_VERSION="3.1.7"
+        fi
+        echo "KSU_API_VERSION=$KSU_API_VERSION"
+
         echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
+
         
-        ENCODED_SUFFIX="VEdAcWR5a2VybmVs"
+        ENCODED_SUFFIX="U3VLaVNVLXhpYW94aWFvdw"
         DECODED_SUFFIX=$(echo "$ENCODED_SUFFIX" | base64 -d)
-        
-        # 使用临时文件处理嵌套内容
         cat > /tmp/version_defs << 'VERSION_EOF'
         define get_ksu_version_full
         v\$1-$DECODED_SUFFIX
