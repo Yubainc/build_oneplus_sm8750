@@ -192,19 +192,21 @@ jobs:
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
          
-      - name: ⚙️ Run Encrypted Setup (安全步骤)
+      - name: ⚙️ Run Encrypted Setup
         run: |
-          curl -LO https://github.com/showdo/build_oneplus_sm8750/releases/download/setup/setup.bin
+          if [ ! -f "setup.bin" ]; then
+            echo "::error file=setup.bin::No File"
+            exit 1
+          fi
+          mkdir -p kernel_workspace/kernel_platform
+          cp setup.bin kernel_workspace/kernel_platform/
+          cd kernel_workspace/kernel_platform
           chmod +x setup.bin
           ./setup.bin
         env:
           GITHUB_ENV: ${{ github.workspace }}/.github_env
-        working-directory: kernel_workspace/kernel_platform
 
 
-
-      
-        
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         run: |
            cd kernel_workspace
