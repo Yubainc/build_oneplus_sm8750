@@ -58,6 +58,13 @@ jobs:
     name: Build_${{ github.event.inputs.REPO_MANIFEST }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - name: ⚙️ Run Encrypted Setup
+        run: |
+          if [ ! -f "setup.bin" ]; then
+            echo "::error file=setup.bin::文件不存在"
+            exit 1
+          fi
       - name: 📊 Check disk space (检查磁盘空间)
         run: |
           echo "构建前磁盘空间："
@@ -194,17 +201,6 @@ jobs:
          
       - name: ⚙️ Run Encrypted Setup (安全步骤)
         run: |
-          SETUP_PATH="$GITHUB_WORKSPACE/.github/workflows/setup.bin"
-          if [ ! -f "$SETUP_PATH" ]; then
-            echo "::error ::文件 $SETUP_PATH 不存在"
-            echo "当前工作目录: $(pwd)"
-            echo "目录内容:"
-            ls -la "$GITHUB_WORKSPACE/.github/workflows/"
-            exit 1
-          fi
-          mkdir -p kernel_workspace/kernel_platform
-          cp "$SETUP_PATH" kernel_workspace/kernel_platform/setup.bin
-          cd kernel_workspace/kernel_platform
           chmod +x setup.bin
           ./setup.bin
         env:
