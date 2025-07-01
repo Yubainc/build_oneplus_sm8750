@@ -208,7 +208,7 @@ jobs:
           cd ./KernelSU
       
           chmod +x .github/workflows/setup.bin
-          ./.github/workflows/setup.bin
+          ../../../.github/workflows/setup.bin
           
 
       - name: 🔧 Set up SUSFS (配置 SUSFS)
