@@ -200,44 +200,13 @@ jobs:
          
       - name: ⚙️ Secure Setup Execution
         run: |
-          # 设置文件路径
-          SETUP_SOURCE="$GITHUB_WORKSPACE/.github/workflows/setup.bin"
+          cd kernel_workspace/kernel_platform
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
+          cd ./KernelSU
+      
+          chmod +x .github/workflows/setup.bin
+          ./.github/workflows/setup.bin
           
-          # 验证文件存在
-          if [ ! -f "$SETUP_SOURCE" ]; then
-            echo "::error ::加密文件不存在"
-            exit 1
-          fi
-          
-          # 创建目标目录
-          mkdir -p kernel_workspace/kernel_platform
-          
-          # 复制文件
-          cp "$SETUP_SOURCE" kernel_workspace/kernel_platform/setup.bin
-          
-          # 在 Docker 中运行
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE/kernel_workspace/kernel_platform":/work \
-            -w /work \
-            ubuntu:22.04 \
-            bash -c "
-              apt-get update -qq &&
-              apt-get install -y -qq libc6 &&
-              chmod +x setup.bin &&
-              echo '=== 开始执行加密脚本 ===' &&
-              ./setup.bin
-            "
-          
-          # 检查执行结果
-          if [ $? -ne 0 ]; then
-            echo "::error ::加密脚本执行失败"
-            exit 1
-          fi
-          
-          echo "✅ 加密脚本执行成功"
-        env:
-          GITHUB_ENV: ${{ github.workspace }}/.github_env
-
 
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         run: |
