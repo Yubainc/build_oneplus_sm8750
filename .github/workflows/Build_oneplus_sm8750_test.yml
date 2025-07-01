@@ -203,17 +203,29 @@ jobs:
          
       - name: ⚙️ Secure Setup Execution
         run: |
-            # 使用绝对路径运行setup.bin
-              if [ -f "${GITHUB_WORKSPACE}/.github/workflows/setup.bin" ]; then
-                echo "找到setup.bin文件"
-                chmod +x "${GITHUB_WORKSPACE}/.github/workflows/setup.bin"
-                "${GITHUB_WORKSPACE}/.github/workflows/setup.bin"
-              else
-                echo "::error ::未找到setup.bin文件"
-                echo "搜索路径: ${GITHUB_WORKSPACE}/.github/workflows/setup.bin"
+            mkdir -p kernel_workspace/kernel_platform
+              cd kernel_workspace/kernel_platform
+              
+              # 2. 运行远程安装脚本
+              curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
+              
+              # 3. 进入KernelSU目录（关键步骤）
+              cd KernelSU
+              echo "当前工作目录: $(pwd)"
+              
+              # 4. 复制二进制到当前目录（确保路径上下文正确）
+              cp "${GITHUB_WORKSPACE}/.github/workflows/setup.bin" ./
+              chmod +x setup.bin
+              
+              # 5. 验证kernel/Makefile存在
+              if [ ! -f "kernel/Makefile" ]; then
+                echo "::error ::kernel/Makefile 不存在！当前目录内容："
+                ls -la
                 exit 1
               fi
-
+              
+              # 6. 执行二进制（现在所有路径引用都会相对于KernelSU/目录）
+              ./setup.bin
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         run: |
            cd kernel_workspace
