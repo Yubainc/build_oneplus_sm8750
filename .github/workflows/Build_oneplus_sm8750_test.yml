@@ -203,13 +203,16 @@ jobs:
          
       - name: ⚙️ Secure Setup Execution
         run: |
-          cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
-          cd ./KernelSU
-      
-          chmod +x .github/workflows/setup.bin
-          ../../../.github/workflows/setup.bin
-          
+            # 使用绝对路径运行setup.bin
+              if [ -f "${GITHUB_WORKSPACE}/.github/workflows/setup.bin" ]; then
+                echo "找到setup.bin文件"
+                chmod +x "${GITHUB_WORKSPACE}/.github/workflows/setup.bin"
+                "${GITHUB_WORKSPACE}/.github/workflows/setup.bin"
+              else
+                echo "::error ::未找到setup.bin文件"
+                echo "搜索路径: ${GITHUB_WORKSPACE}/.github/workflows/setup.bin"
+                exit 1
+              fi
 
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         run: |
