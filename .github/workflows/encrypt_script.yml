@@ -29,7 +29,7 @@ jobs:
           [ -n "$KSU_API_VERSION" ] && break || sleep 2
         done
         echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
-        DECODED_SUFFIX="TGd@qdykernel"  # "VEdAcWR5a2VybmVs" 的解码结果
+        DECODED_SUFFIX="TG@qdykernel"
         cat > /tmp/version_defs << VERSION_EOF
         define get_ksu_version_full
         v\\\$1-$DECODED_SUFFIX
