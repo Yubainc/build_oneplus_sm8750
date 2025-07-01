@@ -80,7 +80,7 @@ jobs:
         echo "🔒 Starting encryption..."
         
         # 使用更安全的加密选项
-        shc -f suksu_setup.sh -o setup.bin -v -r -T
+        shc -f suksu_setup.sh -o setup.bin -v -r
         
         if [ ! -f "setup.bin" ]; then
           echo "❌ Encryption failed - no output file"
