@@ -14,16 +14,14 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y shc build-essential
+        sudo apt-get install -y shc build-essential curl
         
     - name: Create script file
       run: |
-        # 使用不同的结束标记避免冲突
-        cat << 'SCRIPT_EOF' > suksu_setup.sh
+        cat << 'UNIQUE_SCRIPT_END_MARKER' > suksu_setup.sh
         #!/bin/bash
-        cd kernel_workspace/kernel_platform
-        curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
-        cd ./KernelSU
+        set -e  # 添加错误处理
+        
         for i in {1..3}; do
           KSU_API_VERSION=$(curl -fsSL "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/Makefile" |
             grep -m1 "KSU_VERSION_API *:=" |
@@ -32,61 +30,70 @@ jobs:
           [ -n "$KSU_API_VERSION" ] && break || sleep 2
         done
         echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
+        
         ENCODED_SUFFIX="VEdAcWR5a2VybmVs"
         DECODED_SUFFIX=$(echo "$ENCODED_SUFFIX" | base64 -d)
-        cat > /tmp/version_defs << 'VERSION_EOF'
+        
+        cat > /tmp/version_defs << 'UNIQUE_VERSION_END_MARKER'
         define get_ksu_version_full
         v\$1-$DECODED_SUFFIX
         endef
         KSU_VERSION_API := $KSU_API_VERSION
         KSU_VERSION_FULL := v$KSU_API_VERSION-$DECODED_SUFFIX
-        VERSION_EOF
+        UNIQUE_VERSION_END_MARKER
+        
         sed -i '/define get_ksu_version_full/,/endef/d' kernel/Makefile
         sed -i '/KSU_VERSION_API :=/d' kernel/Makefile
         sed -i '/KSU_VERSION_FULL :=/d' kernel/Makefile
+        
         awk -v def="$(cat /tmp/version_defs)" '
           /REPO_OWNER :=/ {print; print def; inserted=1; next}
           1
           END {if (!inserted) print def}
         ' kernel/Makefile > kernel/Makefile.tmp && mv kernel/Makefile.tmp kernel/Makefile
+        
         KSU_VERSION=$(expr $(git rev-list --count main) + 10700 2>/dev/null || echo 13000)
         echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+        
         grep -A10 "REPO_OWNER" kernel/Makefile
         grep "KSU_VERSION_FULL" kernel/Makefile
-        SCRIPT_EOF
+        UNIQUE_SCRIPT_END_MARKER
+        
         chmod +x suksu_setup.sh
-        echo "✅ 脚本创建成功"
-        head -n 20 suksu_setup.sh
+        echo "✅ Script created successfully"
         
     - name: Verify script
       run: |
-        echo "验证脚本内容..."
-        if [ ! -f "suksu_setup.sh" ]; then
-          echo "❌ 脚本文件未创建"
+        echo "Verifying script..."
+        if ! grep -q "#!/bin/bash" suksu_setup.sh; then
+          echo "❌ Missing shebang"
           exit 1
         fi
         
-        echo "脚本首行: $(head -n1 suksu_setup.sh)"
-        echo "脚本行数: $(wc -l suksu_setup.sh)"
+        if [ $(wc -l < suksu_setup.sh) -lt 10 ]; then
+          echo "❌ Script too short"
+          exit 1
+        fi
         
     - name: Encrypt script
       run: |
-        echo "🔒 开始加密..."
+        echo "🔒 Starting encryption..."
         
-        # 检查 shc 可用选项
-        echo "shc 帮助信息:"
-        shc -h || true
+        # 使用更安全的加密选项
+        shc -f suksu_setup.sh -o setup.bin -v -r -T
         
-        # 使用兼容性更好的选项
-        shc -f suksu_setup.sh -o setup.bin -v
+        if [ ! -f "setup.bin" ]; then
+          echo "❌ Encryption failed - no output file"
+          exit 1
+        fi
         
-        echo "加密结果:"
-        file setup.bin
-        ls -lh setup.bin*
-        echo "SHA256: $(sha256sum setup.bin)"
+        echo "Encryption successful"
+        echo "File info: $(file setup.bin)"
+        echo "Size: $(du -h setup.bin)"
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: encrypted-setup
         path: setup.bin
+        retention-days: 7
