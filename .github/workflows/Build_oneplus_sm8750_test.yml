@@ -58,7 +58,6 @@ jobs:
     name: Build_${{ github.event.inputs.REPO_MANIFEST }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - name: ⚙️ Run Encrypted Setup
         run: |
           if [ ! -f ".github/workflows/setup.bin" ]; then
