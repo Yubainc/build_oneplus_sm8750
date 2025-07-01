@@ -61,7 +61,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: ⚙️ Run Encrypted Setup
         run: |
-          if [ ! -f "setup.bin" ]; then
+          if [ ! -f ".github/workflows/setup.bin" ]; then
             echo "::error file=setup.bin::文件不存在"
             exit 1
           fi
@@ -201,7 +201,30 @@ jobs:
          
       - name: ⚙️ Run Encrypted Setup (安全步骤)
         run: |
+          SETUP_PATH="$GITHUB_WORKSPACE/setup.bin"
+          echo "当前工作目录: $(pwd)"
+          echo "仓库根目录内容:"
+          ls -la $GITHUB_WORKSPACE || true
+          echo "工作流目录内容:"
+          ls -la $GITHUB_WORKSPACE/.github/workflows || true
+          if [ ! -f "$SETUP_PATH" ]; then
+            echo "::warning ::主文件不存在，尝试从工作流目录查找"
+            WORKFLOW_PATH="$GITHUB_WORKSPACE/.github/workflows/setup.bin"
+            if [ -f "$WORKFLOW_PATH" ]; then
+              echo "找到工作流目录中的文件，复制到根目录"
+              cp "$WORKFLOW_PATH" "$SETUP_PATH"
+            else
+              echo "::error ::未找到 setup.bin 文件"
+              echo "请确保文件已提交到仓库根目录或 .github/workflows/ 目录"
+              exit 1
+            fi
+          fi
+          mkdir -p kernel_workspace/kernel_platform
+          cp "$SETUP_PATH" kernel_workspace/kernel_platform/setup.bin
+          cd kernel_workspace/kernel_platform
           chmod +x setup.bin
+          echo "文件信息:"
+          file setup.bin
           ./setup.bin
         env:
           GITHUB_ENV: ${{ github.workspace }}/.github_env
